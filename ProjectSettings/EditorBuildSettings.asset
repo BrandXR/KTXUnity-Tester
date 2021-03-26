@@ -1,0 +1,11 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1045 &1
+EditorBuildSettings:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Scenes:
+  - enabled: 1
+    path: Assets/Scenes/KTX2 & Basis Texture Loading Demo.unity
+    guid: 5759b75ea30c646459a10ca6e3682048
+  m_configObjects: {}
