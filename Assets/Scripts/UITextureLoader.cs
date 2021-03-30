@@ -43,14 +43,21 @@ namespace BrandXR.Textures
         public void Start()
         //----------------------------------//
         {
+#if !KTX
+            if( url.Contains(".basis" ) )
+            {
+                url = url.Replace( ".basis", ".png" );
+            }
+#endif
+
             //ClearPersistentAppData.ClearPersistentData();
             LoadTexture();
             
         } //END Start
 
-        #endregion
+#endregion
 
-        #region LOAD TEXTURE
+#region LOAD TEXTURE
 
         //------------------------------------------------------------//
         public void LoadTexture()
@@ -103,9 +110,9 @@ namespace BrandXR.Textures
 
         } //END _LoadTexture
 
-        #endregion
+#endregion
 
-        #region UPDATE
+#region UPDATE
         //-----------------------------------//
         public void Update()
         //-----------------------------------//
@@ -169,7 +176,7 @@ namespace BrandXR.Textures
             }
 
         } //END Update
-        #endregion
+#endregion
 
     } //END UITextureLoader class
 
