@@ -268,7 +268,7 @@ namespace BrandXR.Textures
             
             // For .JPG and .PNG, only this logic is executed.
             // For KTX/Basis, this logic is executed in addition to that above because the .basis file needs to be downloaded separately.
-            using (UnityWebRequest www = UnityWebRequestTexture.GetTexture(url, false))
+            using (UnityWebRequest www = UnityWebRequestTexture.GetTexture(url))
             {
                 www.SendWebRequest();
 
@@ -281,7 +281,7 @@ namespace BrandXR.Textures
                 //Unity never sends a final progress callback, so we do it ourselves
                 progressCallback?.Invoke(1f);
 
-                if (www.isNetworkError || www.isHttpError)
+                if (www.result != UnityWebRequest.Result.Success )
                 {
                     errorCallback?.Invoke(www.error);
                 }
@@ -302,16 +302,6 @@ namespace BrandXR.Textures
             }
             
         } //END RequestTexture
-        #endregion
-
-        #region EDITOR OVERRIDES
-
-#if UNITY_EDITOR
-        protected override void OnApplicationQuit() { }
-
-        protected override void OnDestroy() { }
-#endif
-
         #endregion
 
     } //END class
