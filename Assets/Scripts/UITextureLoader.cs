@@ -81,7 +81,7 @@ namespace BrandXR.Textures
                         image.sprite = sprite;
                         image.preserveAspect = true;
 
-                        Debug.Log("Successfully loaded " + path + " into " + image.name);
+                        //Debug.Log("Successfully loaded " + path + " into " + image.name);
 
 #if !UNITY_EDITOR
                         image.SetMaterialDirty();
@@ -90,7 +90,7 @@ namespace BrandXR.Textures
                     if( rend != null )
                     {
                         rend.sharedMaterial.mainTexture = sprite.texture;
-                        Debug.Log( "Successfully loaded " + path + " into " + rend.name );
+                        //Debug.Log( "Successfully loaded " + path + " into " + rend.name );
                     }
 
                     finishedLoadingTexture = true;

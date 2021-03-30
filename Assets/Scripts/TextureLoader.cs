@@ -206,7 +206,7 @@ namespace BrandXR.Textures
             string mimeType = "image/" + Path.GetExtension(url).Remove(0, 1);
 
             //.KTX or .BASIS
-            if (mimeType == "image/ktx" || mimeType == "image/ktx2" || mimeType == "image/basis")
+            if( mimeType == "image/ktx" || mimeType == "image/ktx2" || mimeType == "image/basis" )
             {
 #if !KTX
                 errorCallback?.Invoke( "KTX and basis texture support is not enabled, try enabling 'KTX' scripting define symbol in project settings and make sure KtxUnity plugin is in your project" );
@@ -220,20 +220,37 @@ namespace BrandXR.Textures
                 //Create a KtxUnity plugin TextureBase component, which will handle the transcoding of the bytes to the texture
                 TextureBase textureBase = null;
 
-                if (mimeType == "image/ktx" || mimeType == "image/ktx2")
+                if( mimeType == "image/ktx" || mimeType == "image/ktx2" )
                     textureBase = new KtxTexture();
-                else if (mimeType == "image/basis")
+                else if( mimeType == "image/basis" )
                     textureBase = new BasisUniversalTexture();
 
-                TextureResult result;
-                
+                TextureResult result = null;
+
                 // Check if the url is a file path or an http(s) url
-                Uri urlUri = new Uri(url);
+                Uri urlUri = new Uri( url );
 
                 if( Uri.IsWellFormedUriString( url, UriKind.Absolute ) &&
                    ( urlUri.Scheme == Uri.UriSchemeHttps || urlUri.Scheme == Uri.UriSchemeHttp ) )
                 {
                     result = await textureBase.LoadFromUrl( url, linearColor );
+
+                    //Now that we have the image as a texture from the web, we also need to download it as a series of bytes so we can cache it
+                    UnityWebRequest request = new UnityWebRequest( url );
+                    request.downloadHandler = new DownloadHandlerFile( cachePath );
+
+                    request.SendWebRequest();
+
+                    while( !request.isDone )
+                    {
+                        progressCallback?.Invoke( request.downloadProgress );
+                        await Task.Yield();
+                    }
+
+                    if( request.result != UnityWebRequest.Result.Success )
+                    {
+                        errorCallback?.Invoke( "Error saving image in cache: " + cachePath + " for image = " + Path.GetFileName( url ) );
+                    }
                 }
                 else
                 {
@@ -241,66 +258,73 @@ namespace BrandXR.Textures
                     if( !File.Exists( cachePath ) )
                     {
                         errorCallback?.Invoke( "Error loading from cache: " + cachePath + " does not exist." );
-                        return;
                     }
-
-                    var nativeArray = new NativeArray<byte>( File.ReadAllBytes( cachePath ), KtxNativeInstance.defaultAllocator );
-                    result = await textureBase.LoadFromBytes( nativeArray, true );
-                    nativeArray.Dispose();
+                    else
+                    {
+                        var nativeArray = new NativeArray<byte>( File.ReadAllBytes( cachePath ), KtxNativeInstance.defaultAllocator );
+                        result = await textureBase.LoadFromBytes( nativeArray, true );
+                        nativeArray.Dispose();
+                    }
                 }
+                
 
-                if (result != null)
+                if( result != null )
                 {
-                    Texture2D texture = result.texture;
-                    texture.name = name;
-                    
+                    result.texture.name = name;
+
                     bxrOrientation.IsXFlipped = result.orientation.IsXFlipped();
                     bxrOrientation.IsYFlipped = result.orientation.IsYFlipped();
 
-                    successCallback?.Invoke(texture, url, bxrOrientation);
+                    successCallback?.Invoke( result.texture, url, bxrOrientation );
                 }
                 else
                 {
-                    errorCallback?.Invoke("Unable to transcode " + mimeType + " from path = " + Path.GetFileName(url));
+                    errorCallback?.Invoke( "Unable to transcode " + mimeType + " from path = " + Path.GetFileName( url ) );
                 }
 #endif
             }
-            
-            // For .JPG and .PNG, only this logic is executed.
-            // For KTX/Basis, this logic is executed in addition to that above because the .basis file needs to be downloaded separately.
-            using (UnityWebRequest www = UnityWebRequestTexture.GetTexture(url))
+            else if( mimeType == "image/jpg" || mimeType == "image/png" )
             {
-                www.SendWebRequest();
 
-                while (!www.isDone)
+                using( UnityWebRequest www = UnityWebRequestTexture.GetTexture( url ) )
                 {
-                    progressCallback?.Invoke(www.downloadProgress);
-                    await Task.Yield();
-                }
+                    www.SendWebRequest();
 
-                //Unity never sends a final progress callback, so we do it ourselves
-                progressCallback?.Invoke(1f);
-
-                if (www.result != UnityWebRequest.Result.Success )
-                {
-                    errorCallback?.Invoke(www.error);
-                }
-                else
-                {
-                    //Save our bytes to persistent storage cache
-                    //Debug.Log( "TextureLoader.cs IRequestTexture() Saving to cache = " + cachePath );
-                    File.WriteAllBytes(cachePath, www.downloadHandler.data);
-
-                    // Only invoke the success callback for .JPG or .PNG
-                    if (!(mimeType == "image/ktx" || mimeType == "image/ktx2" || mimeType == "image/basis"))
+                    while( !www.isDone )
                     {
-                        Texture2D tex = DownloadHandlerTexture.GetContent(www);
+                        progressCallback?.Invoke( www.downloadProgress );
+                        await Task.Yield();
+                    }
+
+                    //Unity never sends a final progress callback, so we do it ourselves
+                    progressCallback?.Invoke( 1f );
+
+                    if( www.result != UnityWebRequest.Result.Success )
+                    {
+                        errorCallback?.Invoke( www.error );
+                    }
+                    else
+                    {
+                        Texture2D tex = DownloadHandlerTexture.GetContent( www );
+                        Debug.Log( Application.persistentDataPath );
+
+                        //Cache the downloaded image
+                        if( mimeType == "image/jpg" || mimeType == "image/jpeg" )
+                            File.WriteAllBytes( cachePath, tex.EncodeToJPG() );
+                        else if( mimeType == "image/png" )
+                            File.WriteAllBytes( cachePath, tex.EncodeToPNG() );
+
                         tex.name = name;
-                        successCallback?.Invoke(tex, url, bxrOrientation);
+                        successCallback?.Invoke( tex, url, bxrOrientation );
                     }
                 }
+
             }
-            
+            else
+            {
+                errorCallback?.Invoke( "Unable to load image with mimeType = " + mimeType + " from Image = " + Path.GetFileName(url) + ", please make sure image has mimeType of jpg, png, basis, or ktx" );
+            }
+
         } //END RequestTexture
         #endregion
 
